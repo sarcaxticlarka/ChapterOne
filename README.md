@@ -90,11 +90,13 @@ python init_db.py
 ```
 
 ### 2. Start the Backend API
-Run the FastAPI application via Uvicorn:
+Run the FastAPI application from the project root directory:
 ```bash
-cd backend
-source venv/bin/activate
-python -m backend.main
+# Navigate to the project root directory
+cd ..
+
+# Run backend module with PYTHONPATH
+PYTHONPATH=. backend/venv/bin/python -m backend.main
 ```
 - **API URL**: `http://localhost:8000`
 - **Swagger Docs**: `http://localhost:8000/docs`

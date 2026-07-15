@@ -76,3 +76,36 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
+
+/* Custom premium grid glow background matching TaskAI screenshot */
+.grid-glow-background {
+  position: relative;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.grid-glow-background::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(139, 92, 246, 0.06) 1px, transparent 1px);
+  background-size: 60px 100%;
+  pointer-events: none;
+}
+
+.grid-glow-background::after {
+  content: "";
+  position: absolute;
+  bottom: -10%;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: radial-gradient(circle at bottom, rgba(139, 92, 246, 0.25) 0%, rgba(217, 70, 239, 0.08) 35%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.serif-title {
+  font-family: Garamond, Baskerville, "Baskerville Old Face", "Hoefler Text", "Times New Roman", serif;
+}
+

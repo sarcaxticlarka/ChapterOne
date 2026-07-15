@@ -2,8 +2,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
+from pydantic import BaseModel
+from typing import Optional
 
 from backend.database import get_db
+from backend.config import settings
 from backend.models import User, Streak
 from backend.schemas import UserRegister, UserLogin, Token, UserResponse, GoogleLoginRequest
 from backend.utils.auth_helper import (
@@ -141,4 +144,26 @@ def get_google_client_id():
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+class ProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    password: Optional[str] = None
+
+@router.put("/profile", response_model=UserResponse)
+def update_profile(
+    payload: ProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if payload.name:
+        current_user.name = payload.name
+    if payload.avatar_url is not None:
+        current_user.avatar_url = payload.avatar_url
+    if payload.password:
+        current_user.password_hash = get_password_hash(payload.password)
+        
+    db.commit()
+    db.refresh(current_user)
     return current_user

@@ -20,6 +20,7 @@ interface AuthContextType {
   loginWithGoogle: (googleToken: string) => Promise<void>;
   logout: () => void;
   getAuthHeaders: () => { Authorization: string };
+  updateUser: (updatedUser: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -148,6 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -159,6 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         logout,
         getAuthHeaders,
+        updateUser,
       }}
     >
       {children}
