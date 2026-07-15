@@ -1,0 +1,81 @@
+# Version control ignores for PDF to E-Course Learning Platform
+
+# Environment secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python files
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Next.js / React / Node files
+node_modules/
+/frontend/node_modules/
+.next/
+/frontend/.next/
+out/
+/frontend/out/
+.docusaurus/
+.pnp
+.pnp.js
+coverage/
+/frontend/coverage/
+
+# Production builds
+/frontend/build/
+
+# Testing
+.jest/
+/frontend/.jest/
+
+# Local database / pgvector files
+*.db
+*.sqlite3
+
+# Document uploads caching
+/backend/uploads/*
+!/backend/uploads/.gitkeep
+
+# System / IDE config
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
