@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AI PDF to E-Course Learning Platform",
   description: "Upload any study material, textbook, or documentation and instantly generate a fully structured interactive learning course with quizzes and an AI companion.",
+  icons: {
+    icon: "/logo_img.png",
+    shortcut: "/logo_img.png",
+    apple: "/logo_img.png",
+  },
 };
 
 export default function RootLayout({

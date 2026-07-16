@@ -67,6 +67,7 @@ ehthumbs.db
 Thumbs.db
 .idea/
 .vscode/
+.kiro/
 *.suo
 *.ntvs*
 *.njsproj
