@@ -5,7 +5,10 @@ import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import canvasConfetti from "canvas-confetti";
-import { Award, AlertCircle, HelpCircle, Loader2, ArrowLeft, CheckCircle2, XCircle, Sparkles } from "lucide-react";
+import {
+  Award, AlertCircle, Loader2, ArrowLeft,
+  CheckCircle2, XCircle, Sparkles, Trophy,
+} from "lucide-react";
 
 interface Question {
   id: string;
@@ -13,13 +16,11 @@ interface Question {
   question: string;
   options?: string[];
 }
-
 interface Quiz {
   id: string;
   chapter_id: string;
   questions: Question[];
 }
-
 interface GradedQuestion {
   question_id: string;
   type: string;
@@ -31,7 +32,6 @@ interface GradedQuestion {
   is_correct: boolean;
   feedback: string;
 }
-
 interface GradingResult {
   attempt_id: string;
   score: number;
@@ -51,105 +51,78 @@ export default function ChapterQuiz() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [gradingResult, setGradingResult] = useState<GradingResult | null>(null);
-  
   const [quizLoading, setQuizLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
+    if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (token && chapterId) {
-      loadOrCreateQuiz();
-    }
+    if (token && chapterId) loadQuiz();
   }, [token, chapterId]);
 
-  const loadOrCreateQuiz = async () => {
+  const loadQuiz = async () => {
     setQuizLoading(true);
     setErrorMsg("");
     try {
-      const response = await fetch(`${API_URL}/api/quizzes/generate?chapter_id=${chapterId}`, {
+      const res = await fetch(`${API_URL}/api/quizzes/generate?chapter_id=${chapterId}`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        const data = await response.json();
+      if (res.ok) {
+        const data = await res.json();
         setQuiz(data);
-        // Initialize answer states
-        const initialAnswers: Record<string, string> = {};
-        data.questions.forEach((q: Question) => {
-          initialAnswers[q.id] = "";
-        });
-        setAnswers(initialAnswers);
+        const init: Record<string, string> = {};
+        data.questions.forEach((q: Question) => { init[q.id] = ""; });
+        setAnswers(init);
       } else {
-        setErrorMsg("Failed to generate or load the chapter quiz.");
+        setErrorMsg("Failed to generate the chapter quiz.");
       }
-    } catch (err) {
-      setErrorMsg("Could not establish connection to the server.");
-      console.error(err);
+    } catch {
+      setErrorMsg("Could not connect to the server.");
     } finally {
       setQuizLoading(false);
     }
   };
 
-  const handleSelectAnswer = (qId: string, val: string) => {
-    if (gradingResult) return; // Read-only after submit
-    setAnswers(prev => ({ ...prev, [qId]: val }));
+  const handleSelect = (qId: string, val: string) => {
+    if (gradingResult) return;
+    setAnswers((p) => ({ ...p, [qId]: val }));
   };
 
-  const handleTextChange = (qId: string, val: string) => {
+  const handleText = (qId: string, val: string) => {
     if (gradingResult) return;
-    setAnswers(prev => ({ ...prev, [qId]: val }));
+    setAnswers((p) => ({ ...p, [qId]: val }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quiz || !token) return;
-
-    // Check that at least all questions have some inputs
-    const uncompleted = Object.values(answers).some(a => a.trim() === "");
-    if (uncompleted) {
+    if (Object.values(answers).some((a) => !a.trim())) {
       setErrorMsg("Please answer all questions before submitting.");
       return;
     }
-
     setErrorMsg("");
     setSubmitting(true);
-
     try {
-      const response = await fetch(`${API_URL}/api/quizzes/${quiz.id}/submit`, {
+      const res = await fetch(`${API_URL}/api/quizzes/${quiz.id}/submit`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ answers })
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ answers }),
       });
-
-      if (response.ok) {
-        const result = await response.json();
+      if (res.ok) {
+        const result = await res.json();
         setGradingResult(result);
-        
-        // Celebrate if score is high
         if (result.score >= 70) {
-          canvasConfetti({
-            particleCount: 100,
-            spread: 80,
-            origin: { y: 0.6 }
-          });
+          canvasConfetti({ particleCount: 120, spread: 90, origin: { y: 0.55 } });
         }
       } else {
-        setErrorMsg("Error submitting quiz attempts.");
+        setErrorMsg("Error submitting quiz.");
       }
-    } catch (err) {
+    } catch {
       setErrorMsg("Failed to submit answers.");
-      console.error(err);
     } finally {
       setSubmitting(false);
     }
@@ -157,200 +130,347 @@ export default function ChapterQuiz() {
 
   const handleRetake = () => {
     setGradingResult(null);
-    const resetAnswers: Record<string, string> = {};
-    quiz?.questions.forEach((q) => {
-      resetAnswers[q.id] = "";
-    });
-    setAnswers(resetAnswers);
+    const r: Record<string, string> = {};
+    quiz?.questions.forEach((q) => { r[q.id] = ""; });
+    setAnswers(r);
     setErrorMsg("");
   };
 
+  /* ── Loading skeleton ── */
   if (loading || quizLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-4 border-t-violet-500 border-zinc-800 animate-spin"></div>
+      <div className="page-wrapper">
+        <Navbar />
+        <div className="flex-1 content-max py-10 space-y-6" style={{ maxWidth: 760 }}>
+          <div className="flex items-center gap-3 pb-6" style={{ borderBottom: "1px solid var(--color-border)" }}>
+            <div className="skeleton w-9 h-9 rounded-xl" />
+            <div className="space-y-2">
+              <div className="skeleton h-7 w-52 rounded-xl" />
+              <div className="skeleton h-4 w-64 rounded-lg" />
+            </div>
+          </div>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="skeleton h-48 rounded-3xl" />
+          ))}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col relative overflow-hidden">
-      {/* Background glow decoration */}
-      <div className="absolute top-[10%] right-[10%] w-[300px] h-[300px] bg-amber-600/5 rounded-full blur-[100px] pointer-events-none"></div>
+  const scoreColor = gradingResult
+    ? gradingResult.score >= 70 ? "#34d399" : "#fbbf24"
+    : "#5b73ff";
 
+  return (
+    <div className="page-wrapper">
       <Navbar />
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10 space-y-8">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-900 pb-6">
-          <div className="flex items-center space-x-3">
+      {/* Ambient glows */}
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
+        <div className="absolute top-20 right-1/4 w-[400px] h-[400px] rounded-full bg-[#5b73ff]/5 blur-[120px]" />
+        <div className="absolute bottom-20 left-1/4 w-[300px] h-[300px] rounded-full bg-amber-500/4 blur-[100px]" />
+      </div>
+
+      <main
+        className="relative z-10 flex-1 content-max py-10 space-y-7"
+        style={{ maxWidth: 760 }}
+      >
+        {/* ── Header ── */}
+        <div
+          className="flex items-center justify-between pb-6"
+          style={{ borderBottom: "1px solid var(--color-border)" }}
+        >
+          <div className="flex items-center gap-3">
             <button
               onClick={() => router.push(`/courses/${courseId}`)}
-              className="p-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              aria-label="Back to course"
+              className="btn-ghost p-2"
+              style={{ borderRadius: "var(--radius-md)", border: "1px solid var(--color-border)" }}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight">Chapter Quiz Practice</h1>
-              <p className="text-zinc-400 text-xs mt-0.5">Test your recall of the concepts explained in this chapter.</p>
+              <h1
+                style={{
+                  fontSize: "var(--text-2xl)",
+                  fontWeight: 800,
+                  background: "linear-gradient(135deg, #f0f4ff 0%, #7c8fff 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                Chapter Quiz
+              </h1>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginTop: 2 }}>
+                Test your recall of the concepts in this chapter.
+              </p>
             </div>
           </div>
-          
-          <div className="inline-flex w-10 h-10 rounded-xl bg-amber-950/30 border border-amber-900/40 items-center justify-center text-amber-500">
-            <Award className="w-5 h-5" />
+
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)" }}
+          >
+            <Award className="w-5 h-5 text-amber-400" />
           </div>
         </div>
 
+        {/* ── Error ── */}
         {errorMsg && (
-          <div className="p-4 rounded-xl bg-red-950/20 border border-red-900/40 text-red-400 text-sm flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="alert-error">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* Quiz Submission Results Summary */}
+        {/* ── Score banner ── */}
         {gradingResult && (
-          <div className="glass-panel p-6 md:p-8 rounded-3xl border border-zinc-800/40 flex flex-col md:flex-row items-center justify-between gap-6 bg-violet-950/5">
-            <div className="space-y-2 text-center md:text-left">
-              <h2 className="text-2xl font-black">Your Quiz Score: <span className={gradingResult.score >= 70 ? "text-emerald-400" : "text-amber-500"}>{gradingResult.score}%</span></h2>
-              <p className="text-zinc-400 text-sm">
-                {gradingResult.score >= 85 && "Outstanding work! You've mastered these concepts."}
-                {gradingResult.score >= 70 && gradingResult.score < 85 && "Good job! You passed the chapter quiz."}
-                {gradingResult.score < 70 && "Keep studying! Try reviewing the lessons and retaking the quiz."}
-              </p>
+          <div
+            className="p-6 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-5"
+            style={{
+              background: "linear-gradient(145deg, rgba(13,20,40,0.95) 0%, rgba(17,24,39,0.95) 100%)",
+              border: `1px solid ${gradingResult.score >= 70 ? "rgba(52,211,153,0.25)" : "rgba(251,191,36,0.25)"}`,
+              boxShadow: `0 0 40px ${gradingResult.score >= 70 ? "rgba(52,211,153,0.06)" : "rgba(251,191,36,0.06)"}`,
+            }}
+          >
+            {/* Left: score */}
+            <div className="flex items-center gap-4">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                style={{
+                  background: gradingResult.score >= 70 ? "rgba(52,211,153,0.1)" : "rgba(251,191,36,0.1)",
+                  border: `1px solid ${gradingResult.score >= 70 ? "rgba(52,211,153,0.2)" : "rgba(251,191,36,0.2)"}`,
+                }}
+              >
+                <Trophy className="w-7 h-7" style={{ color: scoreColor }} />
+              </div>
+              <div>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)", fontWeight: 600 }}>
+                  Final Score
+                </p>
+                <p style={{ fontSize: "var(--text-3xl)", fontWeight: 900, color: scoreColor, lineHeight: 1.1 }}>
+                  {gradingResult.score}%
+                </p>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginTop: 2 }}>
+                  {gradingResult.score >= 85 && "Outstanding! You've mastered these concepts."}
+                  {gradingResult.score >= 70 && gradingResult.score < 85 && "Good job! You passed the quiz."}
+                  {gradingResult.score < 70 && "Keep going — review the lessons and try again."}
+                </p>
+              </div>
             </div>
-            
-            <div className="flex items-center space-x-4 w-full md:w-auto shrink-0">
+
+            {/* Right: actions */}
+            <div className="flex gap-3 w-full md:w-auto shrink-0">
               <button
                 onClick={handleRetake}
-                className="flex-1 md:flex-none py-3 px-6 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl font-bold transition-all text-sm cursor-pointer"
+                className="btn-secondary flex-1 md:flex-none"
+                style={{ borderRadius: "var(--radius-lg)" }}
               >
                 Retake Quiz
               </button>
               <button
                 onClick={() => router.push(`/courses/${courseId}`)}
-                className="flex-1 md:flex-none py-3 px-6 gradient-button rounded-xl font-bold text-white text-sm cursor-pointer"
+                className="btn-primary flex-1 md:flex-none"
+                style={{ borderRadius: "var(--radius-lg)" }}
               >
-                Return to Course
+                Back to Course
               </button>
             </div>
           </div>
         )}
 
-        {/* Quiz Form */}
-        <form onSubmit={handleSubmit} className="space-y-8">
+        {/* ── Questions ── */}
+        <form onSubmit={handleSubmit} className="space-y-5">
           {quiz?.questions.map((q, idx) => {
-            const isGraded = gradingResult !== null;
-            const gradedInfo = isGraded ? gradingResult.questions.find(g => g.question_id === q.id) : null;
-            
+            const graded = gradingResult !== null;
+            const gInfo = graded ? gradingResult.questions.find((g) => g.question_id === q.id) : null;
+
+            // Card border based on grade
+            let cardBorder = "var(--color-border)";
+            let cardBg = "linear-gradient(145deg, rgba(13,20,40,0.9) 0%, rgba(17,24,39,0.9) 100%)";
+            if (graded && gInfo) {
+              cardBorder = gInfo.is_correct ? "rgba(52,211,153,0.25)" : "rgba(239,68,68,0.25)";
+              cardBg = gInfo.is_correct
+                ? "linear-gradient(145deg, rgba(16,185,129,0.05) 0%, rgba(13,20,40,0.9) 100%)"
+                : "linear-gradient(145deg, rgba(239,68,68,0.05) 0%, rgba(13,20,40,0.9) 100%)";
+            }
+
             return (
               <div
                 key={q.id}
-                className={`glass-panel p-6 rounded-3xl border transition-all duration-300 ${
-                  isGraded
-                    ? gradedInfo?.is_correct
-                      ? "border-emerald-950/40 bg-emerald-950/5"
-                      : "border-red-950/40 bg-red-950/5"
-                    : "border-zinc-800/40"
-                }`}
+                className="p-6 rounded-3xl transition-all duration-300"
+                style={{
+                  background: cardBg,
+                  border: `1px solid ${cardBorder}`,
+                  boxShadow: graded && gInfo
+                    ? `0 0 30px ${gInfo.is_correct ? "rgba(52,211,153,0.04)" : "rgba(239,68,68,0.04)"}`
+                    : "none",
+                }}
               >
                 <div className="space-y-4">
-                  {/* Title & Question number */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-zinc-500">
-                      Question {idx + 1} • {q.type.replace("-", " ")}
-                    </span>
-                    {isGraded && (
-                      <span className={`text-xs font-bold flex items-center space-x-1 ${
-                        gradedInfo?.is_correct ? "text-emerald-400" : "text-red-400"
-                      }`}>
-                        {gradedInfo?.is_correct ? (
-                          <>
-                            <CheckCircle2 className="w-4.5 h-4.5" />
-                            <span>Correct ({gradedInfo.score} pts)</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-4.5 h-4.5" />
-                            <span>Incorrect ({gradedInfo?.score || 0} pts)</span>
-                          </>
-                        )}
+                  {/* Question header */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0"
+                        style={{
+                          background: "var(--color-accent-dim)",
+                          color: "var(--color-accent)",
+                          border: "1px solid rgba(91,115,255,0.2)",
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "var(--text-xs)",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "var(--color-text-muted)",
+                        }}
+                      >
+                        {q.type.replace("-", " ")}
+                      </span>
+                    </div>
+
+                    {graded && gInfo && (
+                      <span
+                        className="flex items-center gap-1.5 text-xs font-bold"
+                        style={{ color: gInfo.is_correct ? "#34d399" : "#fca5a5" }}
+                      >
+                        {gInfo.is_correct
+                          ? <><CheckCircle2 className="w-4 h-4" /><span>Correct</span></>
+                          : <><XCircle className="w-4 h-4" /><span>Incorrect</span></>
+                        }
                       </span>
                     )}
                   </div>
 
-                  <p className="text-zinc-100 font-bold text-base leading-relaxed">{q.question}</p>
+                  {/* Question text */}
+                  <p style={{ fontSize: "var(--text-base)", fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.6 }}>
+                    {q.question}
+                  </p>
 
-                  {/* Rendering Options for MCQs and True/False */}
+                  {/* MCQ / True-False options */}
                   {q.type !== "short-answer" && q.options && (
-                    <div className="grid grid-cols-1 gap-3 pt-2">
-                      {q.options.map((option) => {
-                        const isSelected = answers[q.id] === option;
-                        let optionStyle = "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 text-zinc-300";
-                        
-                        if (isSelected) {
-                          optionStyle = "bg-violet-950/20 border-violet-800/50 text-violet-400";
-                        }
-                        
-                        if (isGraded) {
-                          const isCorrectOption = option === gradedInfo?.correct_answer;
-                          if (isCorrectOption) {
-                            optionStyle = "bg-emerald-950/20 border-emerald-800/60 text-emerald-400 font-bold";
-                          } else if (isSelected) {
-                            optionStyle = "bg-red-950/20 border-red-800/60 text-red-400 line-through";
-                          }
+                    <div className="space-y-2.5 pt-1">
+                      {q.options.map((opt) => {
+                        const selected = answers[q.id] === opt;
+                        const isCorrectOpt = gInfo?.correct_answer === opt;
+                        const isWrongSelected = graded && selected && !isCorrectOpt;
+
+                        let bg = "rgba(255,255,255,0.03)";
+                        let border = "var(--color-border)";
+                        let color = "var(--color-text-secondary)";
+                        let textDecoration = "none";
+
+                        if (!graded && selected) {
+                          bg = "rgba(91,115,255,0.1)";
+                          border = "rgba(91,115,255,0.4)";
+                          color = "#7c8fff";
+                        } else if (graded && isCorrectOpt) {
+                          bg = "rgba(16,185,129,0.08)";
+                          border = "rgba(52,211,153,0.35)";
+                          color = "#34d399";
+                        } else if (isWrongSelected) {
+                          bg = "rgba(239,68,68,0.08)";
+                          border = "rgba(239,68,68,0.35)";
+                          color = "#fca5a5";
+                          textDecoration = "line-through";
                         }
 
                         return (
                           <button
-                            key={option}
+                            key={opt}
                             type="button"
-                            disabled={isGraded}
-                            onClick={() => handleSelectAnswer(q.id, option)}
-                            className={`w-full text-left p-4 rounded-xl border text-sm flex items-center justify-between transition-all cursor-pointer disabled:cursor-default ${optionStyle}`}
+                            disabled={graded}
+                            onClick={() => handleSelect(q.id, opt)}
+                            className="w-full text-left p-4 rounded-2xl text-sm transition-all duration-150 cursor-pointer disabled:cursor-default flex items-center gap-3"
+                            style={{ background: bg, border: `1px solid ${border}`, color, textDecoration }}
                           >
-                            <span>{option}</span>
+                            {/* Option dot */}
+                            <span
+                              className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black"
+                              style={{
+                                background: selected || (graded && isCorrectOpt) ? border : "rgba(255,255,255,0.06)",
+                                border: `1px solid ${border}`,
+                                color: selected || (graded && isCorrectOpt) ? "#fff" : "var(--color-text-muted)",
+                              }}
+                            >
+                              {String.fromCharCode(65 + (q.options?.indexOf(opt) ?? 0))}
+                            </span>
+                            <span style={{ fontWeight: selected || (graded && isCorrectOpt) ? 700 : 400 }}>
+                              {opt}
+                            </span>
+                            {graded && isCorrectOpt && (
+                              <CheckCircle2 className="w-4 h-4 ml-auto shrink-0" style={{ color: "#34d399" }} />
+                            )}
+                            {isWrongSelected && (
+                              <XCircle className="w-4 h-4 ml-auto shrink-0" style={{ color: "#fca5a5" }} />
+                            )}
                           </button>
                         );
                       })}
                     </div>
                   )}
 
-                  {/* Rendering Textarea for Short Answers */}
+                  {/* Short answer textarea */}
                   {q.type === "short-answer" && (
-                    <div className="space-y-4 pt-2">
+                    <div className="space-y-3 pt-1">
                       <textarea
                         rows={4}
-                        placeholder="Write your explanation or answer in details..."
-                        disabled={isGraded}
+                        placeholder="Write your answer here…"
+                        disabled={graded}
                         value={answers[q.id] || ""}
-                        onChange={(e) => handleTextChange(q.id, e.target.value)}
-                        className="input-premium w-full h-32 leading-relaxed"
-                      ></textarea>
-
-                      {isGraded && gradedInfo && (
-                        <div className="space-y-3 p-4 rounded-2xl bg-zinc-900/40 border border-zinc-850">
+                        onChange={(e) => handleText(q.id, e.target.value)}
+                        className="input-field"
+                        style={{ resize: "vertical", minHeight: 100, borderRadius: "var(--radius-lg)" }}
+                      />
+                      {graded && gInfo && (
+                        <div
+                          className="p-4 rounded-2xl space-y-3"
+                          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--color-border)" }}
+                        >
                           <div>
-                            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">AI Grader Feedback</span>
-                            <p className="text-sm text-zinc-300 leading-relaxed mt-1">{gradedInfo.feedback}</p>
+                            <p style={{ fontSize: "var(--text-xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--color-text-muted)" }}>
+                              AI Feedback
+                            </p>
+                            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginTop: 4, lineHeight: 1.6 }}>
+                              {gInfo.feedback}
+                            </p>
                           </div>
-                          <div className="pt-2 border-t border-zinc-800/40">
-                            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Expected Reference Model Answer</span>
-                            <p className="text-sm text-emerald-400 font-semibold mt-1">{gradedInfo.correct_answer}</p>
+                          <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 12 }}>
+                            <p style={{ fontSize: "var(--text-xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--color-text-muted)" }}>
+                              Model Answer
+                            </p>
+                            <p style={{ fontSize: "var(--text-sm)", color: "#34d399", fontWeight: 600, marginTop: 4 }}>
+                              {gInfo.correct_answer}
+                            </p>
                           </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Rendering Explanation Box if submitted */}
-                  {isGraded && gradedInfo?.explanation && (
-                    <div className="mt-4 p-4 rounded-2xl bg-violet-950/10 border border-violet-900/20 text-zinc-300 text-xs leading-relaxed flex items-start space-x-2.5">
-                      <Sparkles className="w-4 h-4 shrink-0 text-violet-400 mt-0.5" />
+                  {/* Explanation */}
+                  {graded && gInfo?.explanation && (
+                    <div
+                      className="flex items-start gap-3 p-4 rounded-2xl mt-1"
+                      style={{
+                        background: "rgba(91,115,255,0.06)",
+                        border: "1px solid rgba(91,115,255,0.15)",
+                      }}
+                    >
+                      <Sparkles className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#7c8fff" }} />
                       <div>
-                        <span className="font-bold text-violet-400 block mb-0.5">Explanation</span>
-                        <span>{gradedInfo.explanation}</span>
+                        <p style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "#7c8fff", marginBottom: 3 }}>
+                          Explanation
+                        </p>
+                        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                          {gInfo.explanation}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -359,22 +479,18 @@ export default function ChapterQuiz() {
             );
           })}
 
+          {/* Submit button */}
           {!gradingResult && (
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-4 rounded-xl font-bold text-white gradient-button flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full py-4 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              style={{ fontSize: "var(--text-base)" }}
             >
               {submitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>AI Grader evaluating answers...</span>
-                </>
+                <><Loader2 className="w-5 h-5 animate-spin" /><span>AI grading your answers…</span></>
               ) : (
-                <>
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Submit Quiz Answers</span>
-                </>
+                <><CheckCircle2 className="w-5 h-5" /><span>Submit Quiz</span></>
               )}
             </button>
           )}
