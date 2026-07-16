@@ -138,7 +138,7 @@ export const FlashcardsModal: React.FC<FlashcardsModalProps> = ({ lessonId, less
           </div>
         ) : cards.length === 0 ? (
           <div className="py-12 text-center space-y-6">
-            <HelpCircle className="w-12 h-12 text-zinc-650 mx-auto" />
+            <HelpCircle className="w-12 h-12 text-zinc-500 mx-auto" />
             <div className="space-y-2">
               <h4 className="font-bold text-zinc-200">No Flashcards Generated Yet</h4>
               <p className="text-zinc-500 text-xs max-w-sm mx-auto leading-relaxed">

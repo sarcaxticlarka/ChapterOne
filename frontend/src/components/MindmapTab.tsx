@@ -74,7 +74,7 @@ export const MindmapTab: React.FC<MindmapTabProps> = ({ courseId }) => {
 
   if (error || !mindmap) {
     return (
-      <div className="p-8 text-center text-zinc-550 border border-dashed border-zinc-800 rounded-3xl">
+      <div className="p-8 text-center text-zinc-500 border border-dashed border-zinc-800 rounded-3xl">
         <p>{error || "No mindmap data found."}</p>
       </div>
     );
@@ -139,7 +139,7 @@ export const MindmapTab: React.FC<MindmapTabProps> = ({ courseId }) => {
                             <div className="absolute left-[-24px] top-3.5 w-6 border-t border-zinc-800"></div>
                             <div className="w-2 h-2 rounded-full bg-zinc-700 group-hover:bg-violet-400 transition-colors"></div>
                             <div className="px-3 py-1.5 rounded-lg bg-zinc-950/45 border border-zinc-900/60 text-zinc-400 group-hover:text-zinc-200 group-hover:border-zinc-800 text-xs font-medium transition-all shadow-sm flex items-center space-x-2">
-                              <BookOpen className="w-3.5 h-3.5 text-zinc-650" />
+                              <BookOpen className="w-3.5 h-3.5 text-zinc-500" />
                               <span>{lesson.name}</span>
                             </div>
                           </div>

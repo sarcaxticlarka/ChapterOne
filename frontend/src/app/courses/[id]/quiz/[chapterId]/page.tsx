@@ -326,7 +326,7 @@ export default function ChapterQuiz() {
                         disabled={isGraded}
                         value={answers[q.id] || ""}
                         onChange={(e) => handleTextChange(q.id, e.target.value)}
-                        className="w-full p-4 bg-zinc-900/80 border border-zinc-800 rounded-xl focus:border-violet-500 focus:outline-none text-zinc-100 text-sm leading-relaxed"
+                        className="input-premium w-full h-32 leading-relaxed"
                       ></textarea>
 
                       {isGraded && gradedInfo && (

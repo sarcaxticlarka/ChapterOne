@@ -1,194 +1,184 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
-import { Upload, FileText, AlertCircle, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
+import { Upload, FileText, AlertCircle, Sparkles, Loader2, CheckCircle2, CloudUpload } from "lucide-react";
 
 const API_URL = "http://localhost:8000";
+
+type Phase = "idle" | "uploading" | "processing" | "generating" | "success";
+
+const PHASES: Phase[] = ["uploading", "processing", "generating", "success"];
+
+const PHASE_META: Record<string, { label: string; msg: string }> = {
+  uploading:   { label: "Uploading Document",  msg: "Transferring your PDF to the server…" },
+  processing:  { label: "Processing PDF",      msg: "Extracting text and building semantic embeddings…" },
+  generating:  { label: "Generating Course",   msg: "AI is structuring chapters, lessons and quizzes…" },
+  success:     { label: "Course Ready!",       msg: "Redirecting to your new interactive course…" },
+};
 
 export default function UploadPage() {
   const { user, token, loading } = useAuth();
   const router = useRouter();
 
   const [file, setFile] = useState<File | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [phase, setPhase] = useState<"idle" | "uploading" | "processing" | "generating" | "success">("idle");
-  const [progressMsg, setProgressMsg] = useState("");
+  const [error, setError] = useState("");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
+    if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setErrorMsg("");
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFile = e.target.files[0];
-      if (selectedFile.type !== "application/pdf") {
-        setErrorMsg("Please select a valid PDF document.");
-        setFile(null);
-        return;
-      }
-      setFile(selectedFile);
+  const pickFile = (f: File) => {
+    setError("");
+    if (f.type !== "application/pdf") {
+      setError("Only PDF files are supported. Please select a valid PDF.");
+      return;
     }
+    setFile(f);
   };
+
+  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) pickFile(e.target.files[0]);
+  };
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files?.[0]) pickFile(e.dataTransfer.files[0]);
+  }, []);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !token) return;
-
-    setErrorMsg("");
-    setPhase("uploading");
-    setProgressMsg("Uploading PDF to server...");
+    setError("");
 
     try {
-      // 1. Upload File
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const uploadResponse = await fetch(`${API_URL}/api/documents/upload`, {
+      setPhase("uploading");
+      const fd = new FormData();
+      fd.append("file", file);
+      const upRes = await fetch(`${API_URL}/api/documents/upload`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
       });
+      if (!upRes.ok) throw new Error((await upRes.json()).detail || "Upload failed.");
+      const { id: docId } = await upRes.json();
 
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        throw new Error(errorData.detail || "File upload failed.");
-      }
-
-      const docData = await uploadResponse.json();
-      const docId = docData.id;
-
-      // 2. Poll Document processing status
       setPhase("processing");
-      setProgressMsg("Extracting text and computing semantic vector embeddings...");
-      
-      let attempts = 0;
-      let docReady = false;
-      
-      while (attempts < 60) { // Timeout after 5 minutes (60 * 5s)
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-        
-        const statusResponse = await fetch(`${API_URL}/api/documents/${docId}/status`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      let ready = false;
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const st = await fetch(`${API_URL}/api/documents/${docId}/status`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        
-        if (!statusResponse.ok) {
-          throw new Error("Failed to fetch document processing status.");
-        }
-        
-        const statusData = await statusResponse.json();
-        if (statusData.status === "completed") {
-          docReady = true;
-          break;
-        } else if (statusData.status === "failed") {
-          throw new Error("PDF processing failed. Please verify the document is not corrupted.");
-        }
-        
-        attempts++;
+        if (!st.ok) throw new Error("Failed to check processing status.");
+        const { status } = await st.json();
+        if (status === "completed") { ready = true; break; }
+        if (status === "failed") throw new Error("PDF processing failed. Please check the file.");
       }
+      if (!ready) throw new Error("Processing timed out. Try a smaller document.");
 
-      if (!docReady) {
-        throw new Error("PDF processing timed out. Please try a smaller file.");
-      }
-
-      // 3. Trigger Course Generation
       setPhase("generating");
-      setProgressMsg("AI is analyzing structure and creating your interactive course outline...");
-
-      const generateResponse = await fetch(`${API_URL}/api/courses/generate`, {
+      const genRes = await fetch(`${API_URL}/api/courses/generate`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ document_id: docId }),
       });
+      if (!genRes.ok) throw new Error((await genRes.json()).detail || "Course generation failed.");
+      const { id: courseId } = await genRes.json();
 
-      if (!generateResponse.ok) {
-        const errorData = await generateResponse.json();
-        throw new Error(errorData.detail || "AI course generation failed.");
-      }
-
-      const courseData = await generateResponse.json();
       setPhase("success");
-      setProgressMsg("Success! Directing to your new interactive e-course...");
-      
-      // Delay slightly for UX
-      setTimeout(() => {
-        router.push(`/courses/${courseData.id}`);
-      }, 2000);
-
+      setTimeout(() => router.push(`/courses/${courseId}`), 2000);
     } catch (err: any) {
       setPhase("idle");
-      setErrorMsg(err.message || "An error occurred during course building.");
+      setError(err.message || "An unexpected error occurred.");
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-4 border-t-violet-500 border-zinc-800 animate-spin"></div>
+      <div className="page-wrapper">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full border-4 border-t-[#5b73ff] border-[#1e2a45] animate-spin" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-[10%] left-[10%] w-[350px] h-[350px] bg-violet-600/5 rounded-full blur-[100px] pointer-events-none"></div>
-
+    <div className="page-wrapper">
       <Navbar />
 
-      <div className="flex-1 max-w-4xl w-full mx-auto px-6 py-12 flex flex-col items-center justify-center">
-        <div className="w-full max-w-2xl glass-panel p-8 md:p-10 rounded-3xl border border-zinc-800/40 text-center">
-          
+      {/* Ambient glow */}
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-[#5b73ff]/6 blur-[120px]" />
+      </div>
+
+      <div className="relative z-10 flex-1 flex items-center justify-center content-max py-12">
+        <div
+          className="w-full max-w-xl surface-raised p-8 md:p-10 text-center"
+          style={{ boxShadow: "0 32px 80px rgba(0,0,0,0.6), 0 0 40px rgba(91,115,255,0.06)" }}
+        >
+
           {phase === "idle" ? (
-            <div className="space-y-6">
+            <div className="space-y-7">
+              {/* Icon */}
+              <div className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center" style={{ background: "var(--color-accent-dim)", border: "1px solid rgba(91,115,255,0.2)" }}>
+                <CloudUpload className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
+              </div>
+
               <div className="space-y-2">
-                <div className="inline-flex w-12 h-12 rounded-2xl bg-violet-950/40 border border-violet-850/30 items-center justify-center text-violet-400 mb-2">
-                  <Upload className="w-6 h-6" />
-                </div>
-                <h1 className="text-3xl font-extrabold tracking-tight">Convert PDF to Course</h1>
-                <p className="text-zinc-400 text-sm max-w-md mx-auto">
-                  Drag and drop your study guide or document to start creating a structured interactive curriculum.
+                <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--color-text-primary)" }}>
+                  Convert PDF to Course
+                </h1>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", maxWidth: 360, margin: "0 auto" }}>
+                  Upload any study guide, textbook, or paper and get a full interactive course with lessons, quizzes, and flashcards.
                 </p>
               </div>
 
-              {errorMsg && (
-                <div className="p-4 rounded-xl bg-red-950/20 border border-red-900/40 text-red-400 text-sm flex items-start space-x-3 text-left">
-                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                  <span>{errorMsg}</span>
+              {error && (
+                <div className="alert-error text-left">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
                 </div>
               )}
 
-              <form onSubmit={handleUpload} className="space-y-6">
-                <div className="border-2 border-dashed border-zinc-800 hover:border-violet-500/50 rounded-2xl p-8 transition-colors bg-zinc-900/30 relative flex flex-col items-center justify-center cursor-pointer">
+              <form onSubmit={handleUpload} className="space-y-5">
+                {/* Drop zone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={onDrop}
+                  className="relative rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-all duration-200"
+                  style={{
+                    border: `2px dashed ${dragOver ? "var(--color-accent)" : "var(--color-border)"}`,
+                    background: dragOver ? "var(--color-accent-dim)" : "rgba(255,255,255,0.02)",
+                  }}
+                >
                   <input
                     type="file"
                     accept=".pdf"
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={onInputChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
-                  <FileText className="w-12 h-12 text-zinc-600 mb-4" />
-                  
+                  <FileText className="w-10 h-10 mb-3" style={{ color: file ? "var(--color-accent)" : "var(--color-text-muted)" }} />
                   {file ? (
-                    <div className="space-y-1">
-                      <p className="font-bold text-zinc-200">{file.name}</p>
-                      <p className="text-zinc-500 text-xs">{(file.size / 1024 / 1024).toFixed(2)} MB • PDF Document</p>
+                    <div className="space-y-0.5">
+                      <p style={{ fontWeight: 700, color: "var(--color-text-primary)", fontSize: "var(--text-sm)" }}>{file.name}</p>
+                      <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
+                        {(file.size / 1024 / 1024).toFixed(2)} MB · PDF
+                      </p>
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      <p className="font-bold text-zinc-300">Click to browse or drag PDF here</p>
-                      <p className="text-zinc-500 text-xs">Supports PDF files up to 25MB</p>
+                    <div className="space-y-0.5">
+                      <p style={{ fontWeight: 600, color: "var(--color-text-secondary)", fontSize: "var(--text-sm)" }}>
+                        Drop your PDF here, or <span style={{ color: "var(--color-accent)" }}>browse</span>
+                      </p>
+                      <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>PDF files up to 25 MB</p>
                     </div>
                   )}
                 </div>
@@ -196,57 +186,67 @@ export default function UploadPage() {
                 <button
                   type="submit"
                   disabled={!file}
-                  className="w-full py-4 rounded-xl font-bold text-white gradient-button disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="btn-primary w-full py-3.5 rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  <Sparkles className="w-5 h-5" />
+                  <Sparkles className="w-4 h-4" />
                   <span>Build Interactive Course</span>
                 </button>
               </form>
             </div>
           ) : (
-            <div className="py-10 space-y-8 flex flex-col items-center justify-center">
-              <div className="relative">
+            /* Progress state */
+            <div className="py-8 space-y-8 flex flex-col items-center">
+              {/* Animated icon */}
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{
+                  background: phase === "success" ? "rgba(16,185,129,0.12)" : "var(--color-accent-dim)",
+                  border: `1px solid ${phase === "success" ? "rgba(16,185,129,0.3)" : "rgba(91,115,255,0.25)"}`,
+                }}
+              >
                 {phase === "success" ? (
-                  <div className="w-16 h-16 rounded-full bg-emerald-950/40 border border-emerald-900/50 flex items-center justify-center text-emerald-400">
-                    <CheckCircle2 className="w-8 h-8 animate-bounce" />
-                  </div>
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                 ) : (
-                  <div className="w-16 h-16 rounded-full bg-violet-950/40 border border-violet-900/30 flex items-center justify-center text-violet-400">
-                    <Loader2 className="w-8 h-8 animate-spin" />
-                  </div>
+                  <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--color-accent)" }} />
                 )}
               </div>
 
-              <div className="space-y-3">
-                <h3 className="text-2xl font-bold tracking-tight">
-                  {phase === "uploading" && "Uploading Document"}
-                  {phase === "processing" && "Processing PDF"}
-                  {phase === "generating" && "Generating Course"}
-                  {phase === "success" && "Course Ready!"}
+              <div className="space-y-2">
+                <h3 style={{ fontSize: "var(--text-xl)", fontWeight: 800, color: "var(--color-text-primary)" }}>
+                  {PHASE_META[phase].label}
                 </h3>
-                <p className="text-zinc-400 text-sm max-w-md mx-auto leading-relaxed animate-pulse">
-                  {progressMsg}
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+                  {PHASE_META[phase].msg}
                 </p>
               </div>
 
-              {/* Step indicator */}
-              <div className="flex items-center space-x-3 w-full max-w-sm pt-4">
-                <div className={`h-1.5 flex-1 rounded-full ${
-                  phase === "uploading" ? "bg-violet-500" : "bg-violet-900/50"
-                }`}></div>
-                <div className={`h-1.5 flex-1 rounded-full ${
-                  phase === "processing" ? "bg-violet-500" : phase === "uploading" ? "bg-zinc-800" : "bg-violet-900/50"
-                }`}></div>
-                <div className={`h-1.5 flex-1 rounded-full ${
-                  phase === "generating" ? "bg-violet-500" : phase === "success" ? "bg-violet-900/50" : "bg-zinc-800"
-                }`}></div>
-                <div className={`h-1.5 flex-1 rounded-full ${
-                  phase === "success" ? "bg-emerald-500" : "bg-zinc-800"
-                }`}></div>
+              {/* Step segments */}
+              <div className="flex items-center gap-2 w-full max-w-xs">
+                {PHASES.map((p) => {
+                  const idx = PHASES.indexOf(p);
+                  const cur = PHASES.indexOf(phase);
+                  const done = idx < cur;
+                  const active = idx === cur;
+                  const future = idx > cur;
+                  return (
+                    <div
+                      key={p}
+                      className="h-1.5 flex-1 rounded-full transition-all duration-500"
+                      style={{
+                        background: done
+                          ? "rgba(91,115,255,0.5)"
+                          : active
+                          ? (p === "success" ? "var(--color-success)" : "var(--color-accent)")
+                          : future
+                          ? "var(--color-border)"
+                          : "var(--color-border)",
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>

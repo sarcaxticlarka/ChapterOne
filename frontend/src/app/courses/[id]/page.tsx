@@ -661,15 +661,16 @@ export default function CourseViewer() {
                   <div className="grid grid-cols-1 gap-6 pt-6">
                     {/* Key Takeaways */}
                     {lesson.key_takeaways && lesson.key_takeaways.length > 0 && (
-                      <div className="p-6 rounded-2xl bg-violet-950/10 border border-violet-900/20 space-y-3">
-                        <h3 className="font-extrabold text-sm uppercase tracking-wider text-violet-400 flex items-center space-x-2">
-                          <Sparkles className="w-4 h-4" />
+                      <div className="p-6 rounded-[24px] card-3d-purple border-violet-300/40 space-y-3 relative overflow-hidden">
+                        <div className="w-16 h-16 rounded-full bubble-3d bubble-3d-purple right-[-10px] top-[-10px] opacity-20"></div>
+                        <h3 className="font-extrabold text-sm uppercase tracking-wider text-violet-950 flex items-center space-x-2 relative z-10">
+                          <Sparkles className="w-4 h-4 text-violet-700" />
                           <span>Key Takeaways</span>
                         </h3>
-                        <ul className="space-y-2">
+                        <ul className="space-y-2 relative z-10">
                           {lesson.key_takeaways.map((item, idx) => (
-                            <li key={idx} className="text-sm text-zinc-300 flex items-start space-x-2">
-                              <span className="text-violet-500 font-bold">•</span>
+                            <li key={idx} className="text-xs text-violet-950/80 font-semibold flex items-start space-x-2">
+                              <span className="text-violet-650 font-bold">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
@@ -679,15 +680,16 @@ export default function CourseViewer() {
 
                     {/* Important Notes */}
                     {lesson.notes && lesson.notes.length > 0 && (
-                      <div className="p-6 rounded-2xl bg-amber-950/10 border border-amber-900/20 space-y-3">
-                        <h3 className="font-extrabold text-sm uppercase tracking-wider text-amber-500 flex items-center space-x-2">
-                          <AlertCircle className="w-4 h-4" />
+                      <div className="p-6 rounded-[24px] card-3d-peach border-orange-300/40 space-y-3 relative overflow-hidden">
+                        <div className="w-16 h-16 rounded-full bubble-3d bubble-3d-peach right-[-10px] top-[-10px] opacity-20"></div>
+                        <h3 className="font-extrabold text-sm uppercase tracking-wider text-orange-950 flex items-center space-x-2 relative z-10">
+                          <AlertCircle className="w-4 h-4 text-orange-700" />
                           <span>Important Notes</span>
                         </h3>
-                        <ul className="space-y-2">
+                        <ul className="space-y-2 relative z-10">
                           {lesson.notes.map((item, idx) => (
-                            <li key={idx} className="text-sm text-zinc-300 flex items-start space-x-2">
-                              <span className="text-amber-500 font-bold">!</span>
+                            <li key={idx} className="text-xs text-orange-950/80 font-semibold flex items-start space-x-2">
+                              <span className="text-orange-650 font-bold">!</span>
                               <span>{item}</span>
                             </li>
                           ))}
@@ -697,14 +699,15 @@ export default function CourseViewer() {
 
                     {/* Real-World Examples */}
                     {lesson.examples && lesson.examples.length > 0 && (
-                      <div className="p-6 rounded-2xl bg-sky-950/10 border border-sky-900/20 space-y-3">
-                        <h3 className="font-extrabold text-sm uppercase tracking-wider text-sky-400 flex items-center space-x-2">
-                          <FileText className="w-4 h-4" />
+                      <div className="p-6 rounded-[24px] card-3d-green border-emerald-300/40 space-y-3 relative overflow-hidden">
+                        <div className="w-16 h-16 rounded-full bubble-3d bubble-3d-green right-[-10px] top-[-10px] opacity-20"></div>
+                        <h3 className="font-extrabold text-sm uppercase tracking-wider text-emerald-950 flex items-center space-x-2 relative z-10">
+                          <FileText className="w-4 h-4 text-emerald-700" />
                           <span>Real-World Application</span>
                         </h3>
-                        <ul className="space-y-2">
+                        <ul className="space-y-2 relative z-10">
                           {lesson.examples.map((item, idx) => (
-                            <li key={idx} className="text-sm text-zinc-300 leading-relaxed">
+                            <li key={idx} className="text-xs text-emerald-950/80 font-semibold leading-relaxed">
                               {item}
                             </li>
                           ))}
@@ -719,7 +722,7 @@ export default function CourseViewer() {
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center space-y-4">
-              <BookOpen className="w-12 h-12 text-zinc-650" />
+              <BookOpen className="w-12 h-12 text-zinc-500" />
               <p className="text-zinc-500 text-sm">Select a lesson from the sidebar to begin reading.</p>
             </div>
           )}
@@ -818,7 +821,7 @@ export default function CourseViewer() {
                 value={inputMsg}
                 onChange={(e) => setInputMsg(e.target.value)}
                 disabled={chatLoading}
-                className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 text-zinc-100"
+                className="input-premium flex-1"
               />
               <button
                 type="submit"

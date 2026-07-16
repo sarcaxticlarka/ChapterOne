@@ -4,19 +4,17 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
-import { Search as SearchIcon, BookOpen, AlertCircle, Sparkles, ChevronRight, HelpCircle } from "lucide-react";
+import {
+  Search as SearchIcon, BookOpen, AlertCircle,
+  Sparkles, ChevronRight, Loader2,
+} from "lucide-react";
 
-interface CourseOption {
-  id: string;
-  title: string;
-}
-
+interface CourseOption { id: string; title: string; }
 interface SearchResult {
   type: "keyword" | "semantic";
   lesson_id?: string;
   title?: string;
   snippet: string;
-  chunk_index?: number;
 }
 
 const API_URL = "http://localhost:8000";
@@ -29,65 +27,46 @@ export default function SearchPage() {
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
-  
   const [searching, setSearching] = useState(false);
   const [fetchingCourses, setFetchingCourses] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
+    if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (token) {
-      fetchCourses();
-    }
+    if (token) fetchCourses();
   }, [token]);
 
   const fetchCourses = async () => {
     setFetchingCourses(true);
     try {
-      const response = await fetch(`${API_URL}/api/courses`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
+      const res = await fetch(`${API_URL}/api/courses`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data: CourseOption[] = await res.json();
         setCourses(data);
-        if (data.length > 0) {
-          setSelectedCourseId(data[0].id);
-        }
+        if (data.length > 0) setSelectedCourseId(data[0].id);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setFetchingCourses(false);
-    }
+    } catch { /* silent */ } finally { setFetchingCourses(false); }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourseId || !query.trim() || !token) return;
-
     setErrorMsg("");
     setSearching(true);
+    setSearched(true);
     try {
-      const response = await fetch(
+      const res = await fetch(
         `${API_URL}/api/search?q=${encodeURIComponent(query)}&course_id=${selectedCourseId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (response.ok) {
-        const data = await response.json();
-        setResults(data);
-      } else {
-        setErrorMsg("Failed to complete search query.");
-      }
-    } catch (err) {
+      if (res.ok) setResults(await res.json());
+      else setErrorMsg("Search failed. Please try again.");
+    } catch {
       setErrorMsg("Error connecting to search service.");
-      console.error(err);
     } finally {
       setSearching(false);
     }
@@ -95,172 +74,169 @@ export default function SearchPage() {
 
   if (loading || fetchingCourses) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-4 border-t-violet-500 border-zinc-800 animate-spin"></div>
+      <div className="page-wrapper">
+        <Navbar />
+        <div className="flex-1 content-max py-10 space-y-6" style={{ maxWidth: 800 }}>
+          <div className="space-y-2">
+            <div className="skeleton h-8 w-56 rounded-xl" />
+            <div className="skeleton h-4 w-80 rounded-lg" />
+          </div>
+          <div className="skeleton h-20 rounded-2xl" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col relative overflow-hidden">
-      {/* Background blobs */}
-      <div className="absolute top-[20%] left-[-10%] w-[350px] h-[350px] bg-violet-600/5 rounded-full blur-[100px] pointer-events-none"></div>
-
+    <div className="page-wrapper">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-10 space-y-8">
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
+        <div className="absolute top-1/4 left-0 w-[400px] h-[400px] rounded-full bg-[#5b73ff]/5 blur-[120px]" />
+      </div>
+
+      <main className="relative z-10 flex-1 content-max py-10 space-y-8" style={{ maxWidth: 800 }}>
+
+        {/* Page heading */}
         <div className="space-y-1">
-          <h1 className="text-3xl font-extrabold tracking-tight">Search Course Contents</h1>
-          <p className="text-zinc-400 text-sm">
-            Search keywords using Postgres Full-Text search, or search concepts using pgvector Semantic Search.
+          <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--color-text-primary)" }}>
+            Search Course Content
+          </h1>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+            Full-text keyword search or pgvector semantic search across your courses.
           </p>
         </div>
 
         {errorMsg && (
-          <div className="p-4 rounded-xl bg-red-950/20 border border-red-900/40 text-red-400 text-sm flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="alert-error">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {courses.length === 0 ? (
-          <div className="glass-panel p-10 rounded-3xl border border-zinc-800/40 text-center space-y-4">
-            <BookOpen className="w-10 h-10 text-zinc-650 mx-auto" />
-            <p className="text-zinc-400 text-sm">You must generate a course first to perform searches.</p>
+          <div className="surface-raised text-center py-16 px-8 space-y-4">
+            <BookOpen className="w-10 h-10 mx-auto" style={{ color: "var(--color-text-muted)" }} />
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+              You need to generate a course first before searching.
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Search Controls Form */}
-            <form onSubmit={handleSearch} className="glass-panel p-6 rounded-3xl border border-zinc-800/40 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div className="md:col-span-1 space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Select Course</label>
+            {/* Search form */}
+            <form
+              onSubmit={handleSearch}
+              className="surface p-5 grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
+              style={{ borderRadius: "var(--radius-2xl)" }}
+            >
+              <div className="space-y-1.5">
+                <label style={{ fontSize: "var(--text-xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--color-text-muted)" }}>
+                  Course
+                </label>
                 <select
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className="w-full p-3 bg-zinc-900 border border-zinc-850 rounded-xl text-zinc-100 text-sm focus:border-violet-500 focus:outline-none"
+                  className="input-field"
+                  style={{ appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b9ab8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}
                 >
                   {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
+                    <option key={c.id} value={c.id} style={{ background: "#111827" }}>{c.title}</option>
                   ))}
                 </select>
               </div>
 
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Keyword or Concept</label>
+              <div className="md:col-span-2 space-y-1.5">
+                <label style={{ fontSize: "var(--text-xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--color-text-muted)" }}>
+                  Query
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g. explain machine learning or search 'recursion'..."
+                  placeholder="e.g. 'machine learning' or 'explain recursion'…"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full p-3 bg-zinc-900 border border-zinc-850 rounded-xl text-zinc-100 text-sm focus:border-violet-500 focus:outline-none"
+                  className="input-field"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={searching || !query.trim()}
-                className="md:col-span-1 py-3 px-6 rounded-xl gradient-button text-white font-bold flex items-center justify-center space-x-2 text-sm disabled:opacity-50 cursor-pointer"
+                className="btn-primary w-full disabled:opacity-50 disabled:transform-none disabled:cursor-not-allowed"
+                style={{ height: 44, borderRadius: "var(--radius-md)" }}
               >
                 {searching ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Searching...</span>
-                  </>
+                  <><Loader2 className="w-4 h-4 animate-spin" /><span>Searching…</span></>
                 ) : (
-                  <>
-                    <SearchIcon className="w-4 h-4" />
-                    <span>Query DB</span>
-                  </>
+                  <><SearchIcon className="w-4 h-4" /><span>Search</span></>
                 )}
               </button>
             </form>
 
-            {/* Results Output */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold tracking-tight">Search Results ({results.length})</h2>
-
-              {results.length === 0 && !searching && query && (
-                <div className="p-8 text-center text-zinc-500 text-sm">
-                  No matches found for your query. Try different keywords or concepts.
-                </div>
-              )}
-
+            {/* Results */}
+            {searched && (
               <div className="space-y-4">
-                {results.map((res, index) => (
-                  <div
-                    key={index}
-                    className={`glass-panel p-6 rounded-2xl border ${
-                      res.type === "semantic"
-                        ? "border-violet-950/40 bg-violet-950/5"
-                        : "border-zinc-800/40"
-                    }`}
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
-                          res.type === "semantic"
-                            ? "bg-violet-950/40 text-violet-400 border-violet-900/40"
-                            : "bg-zinc-900 text-zinc-400 border-zinc-800"
-                        }`}>
-                          {res.type === "semantic" ? (
-                            <span className="flex items-center space-x-1">
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              <span>pgvector Semantic Chunk</span>
-                            </span>
-                          ) : (
-                            "SQL Keyword Lesson Match"
-                          )}
-                        </span>
-                        
-                        {res.type === "keyword" && res.lesson_id && (
-                          <button
-                            onClick={() => router.push(`/courses/${selectedCourseId}/lessons/${res.lesson_id}`)}
-                            className="text-xs font-bold text-violet-400 hover:text-violet-300 flex items-center space-x-1"
-                          >
-                            <span>Read Lesson</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
+                <p style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--color-text-secondary)" }}>
+                  {results.length} result{results.length !== 1 ? "s" : ""}
+                </p>
 
-                      <div className="space-y-1">
-                        {res.title && <h3 className="font-bold text-base text-zinc-150">{res.title}</h3>}
-                        <p className="text-zinc-400 text-sm leading-relaxed">{res.snippet}</p>
-                      </div>
-                    </div>
+                {results.length === 0 ? (
+                  <div
+                    className="surface text-center py-10"
+                    style={{ borderRadius: "var(--radius-xl)" }}
+                  >
+                    <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
+                      No matches for "{query}". Try different keywords.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-3">
+                    {results.map((res, i) => {
+                      const semantic = res.type === "semantic";
+                      return (
+                        <div
+                          key={i}
+                          className={`${semantic ? "card-3d-purple" : "card-3d-gray"} p-5 rounded-[20px] border relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl`}
+                        >
+                          {semantic && (
+                            <div className="w-14 h-14 bubble-3d bubble-3d-purple absolute right-[-8px] top-[-8px] opacity-20" />
+                          )}
+                          <div className="relative z-10 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className={`badge ${semantic ? "badge-accent" : ""}`} style={!semantic ? { background: "rgba(0,0,0,0.06)", color: "#52525b", border: "1px solid rgba(0,0,0,0.1)" } : {}}>
+                                {semantic ? (
+                                  <><Sparkles className="w-2.5 h-2.5" /><span>Semantic</span></>
+                                ) : (
+                                  "Keyword"
+                                )}
+                              </span>
+                              {!semantic && res.lesson_id && (
+                                <button
+                                  onClick={() => router.push(`/courses/${selectedCourseId}/lessons/${res.lesson_id}`)}
+                                  className="flex items-center gap-1 text-xs font-bold hover:underline cursor-pointer"
+                                  style={{ color: "#18181b" }}
+                                >
+                                  <span>Read Lesson</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            {res.title && (
+                              <p className="font-extrabold text-sm">{res.title}</p>
+                            )}
+                            <p className={`text-xs leading-relaxed font-medium ${semantic ? "text-violet-900/60" : "text-zinc-600"}`}>
+                              {res.snippet}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>
     </div>
   );
 }
-
-// Simple loader helper
-const Loader2 = ({ className }: { className?: string }) => (
-  <svg
-    className={`animate-spin ${className}`}
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-  >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    ></circle>
-    <path
-      className="opacity-75"
-      fill="currentColor"
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-    ></path>
-  </svg>
-);
