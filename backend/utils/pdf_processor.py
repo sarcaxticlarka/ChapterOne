@@ -2,16 +2,16 @@ import os
 import re
 from typing import List, Dict, Any
 from pypdf import PdfReader
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
-# Lazy loading of sentence-transformers model to save memory during startup
+# Lazy-load the embedding model (downloads ~50MB ONNX model on first use)
 _model = None
 
-def get_embedding_model() -> SentenceTransformer:
+def get_embedding_model() -> TextEmbedding:
     global _model
     if _model is None:
-        # Load the lightweight MiniLM model (384 dimensions)
-        _model = SentenceTransformer('all-MiniLM-L6-v2')
+        # all-MiniLM-L6-v2 via ONNX — identical 384-dim output, no PyTorch needed
+        _model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return _model
 
 def extract_pdf_text_and_metadata(pdf_path: str) -> Dict[str, Any]:
@@ -98,8 +98,8 @@ def generate_embeddings_for_chunks(chunks: List[str]) -> List[List[float]]:
     if not chunks:
         return []
     model = get_embedding_model()
-    embeddings = model.encode(chunks, convert_to_numpy=True)
-    # Convert numpy arrays to lists
+    # fastembed returns a generator of numpy arrays
+    embeddings = list(model.embed(chunks))
     return [emb.tolist() for emb in embeddings]
 
 def generate_embedding_for_query(query: str) -> List[float]:
@@ -107,5 +107,5 @@ def generate_embedding_for_query(query: str) -> List[float]:
     Computes a single vector embedding for a query string.
     """
     model = get_embedding_model()
-    emb = model.encode(query, convert_to_numpy=False)
-    return emb.tolist()
+    embeddings = list(model.embed([query]))
+    return embeddings[0].tolist()
