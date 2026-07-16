@@ -58,7 +58,7 @@ interface ChatMsg {
   content: string;
 }
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function CourseViewer() {
   const { user, token, loading } = useAuth();

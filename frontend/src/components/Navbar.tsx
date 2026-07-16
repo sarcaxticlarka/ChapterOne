@@ -49,7 +49,7 @@ export const Navbar: React.FC = () => {
     setModalError("");
     setModalSuccess(false);
     try {
-      const res = await fetch("http://localhost:8000/api/auth/profile", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: editName, avatar_url: editAvatar || null, password: editPassword || null }),

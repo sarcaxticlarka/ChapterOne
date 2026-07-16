@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import { Upload, FileText, AlertCircle, Sparkles, Loader2, CheckCircle2, CloudUpload } from "lucide-react";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Phase = "idle" | "uploading" | "processing" | "generating" | "success";
 

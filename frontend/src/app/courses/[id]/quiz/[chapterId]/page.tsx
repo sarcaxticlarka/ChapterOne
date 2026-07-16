@@ -39,7 +39,7 @@ interface GradingResult {
   questions: GradedQuestion[];
 }
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function ChapterQuiz() {
   const { user, token, loading } = useAuth();

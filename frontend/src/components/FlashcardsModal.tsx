@@ -17,7 +17,7 @@ interface FlashcardsModalProps {
   onClose: () => void;
 }
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export const FlashcardsModal: React.FC<FlashcardsModalProps> = ({ lessonId, lessonTitle, onClose }) => {
   const { token } = useAuth();

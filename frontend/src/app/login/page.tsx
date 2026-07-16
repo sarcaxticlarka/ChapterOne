@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { AlertCircle, BookOpen, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 function LoginForm() {
   const { user, login, register, loginWithGoogle } = useAuth();
